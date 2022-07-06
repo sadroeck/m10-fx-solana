@@ -1,0 +1,24 @@
+[package]
+name = "m10-fx-solana"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+arrayref = "0.3"
+borsh = "0.9"
+const-decoder = "0.2"
+chainlink_solana = "1.0"
+thiserror = "1.0"
+num-derive = "0.3"
+num-traits = "0.2"
+rust_decimal = "1.25"
+solana-program = "1.11"
+spl-token = {version = "3.3", features = ["no-entrypoint"]}
+getrandom = { version = "0.1", features = ["dummy"] }
+
+[lib]
+crate-type = ["cdylib", "lib"]
