@@ -21,6 +21,8 @@ pub enum FxError {
     InvalidFxFeed,
     #[error("No available liquidity provider")]
     NoLiquidity,
+    #[error("Swap conditions not met")]
+    SwapConditionsNotMet,
 }
 
 pub type FxResult<T> = Result<T, FxError>;

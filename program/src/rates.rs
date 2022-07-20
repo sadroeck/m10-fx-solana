@@ -1,6 +1,7 @@
 use crate::error::FxError;
 use crate::liquidity::*;
 use const_decoder::Decoder;
+use num_traits::One;
 use rust_decimal::Decimal;
 use solana_program::account_info::AccountInfo;
 use solana_program::program_error::ProgramError;
@@ -62,9 +63,10 @@ impl FxRates for StaticFx {
         _fx_program: &AccountInfo<'info>,
         fx_feed: &AccountInfo<'info>,
     ) -> Result<Decimal, ProgramError> {
+        let sar_to_idr_rate = Decimal::new(398440, 2);
         match *fx_feed.key {
-            SAR_TO_IDR => Ok(Decimal::new(398440, 2)), //
-            IDR_TO_SAR => Ok(Decimal::new(25, 5)),
+            SAR_TO_IDR => Ok(sar_to_idr_rate), //
+            IDR_TO_SAR => Ok(Decimal::one() / sar_to_idr_rate),
             _ => Err(FxError::InvalidFxFeed)?,
         }
     }

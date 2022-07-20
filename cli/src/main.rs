@@ -1,26 +1,31 @@
 use clap::Parser;
-use m10_fx_solana::instruction::FxEvent;
 use m10_fx_solana::liquidity::{DemoLiquidity, LiquidityProvider};
-use m10_fx_solana::rates::feed_for_token;
+use m10_fx_solana::rates::{feed_for_token, DemoFx, FxRates};
 use m10_fx_solana::state::FxData;
 use m10_fx_solana::utils::pda_swap;
+use rust_decimal::prelude::One;
+use rust_decimal::Decimal;
+use solana_client::client_error::ClientError;
 use solana_client::rpc_client::RpcClient;
-use solana_program::clock::UnixTimestamp;
-use solana_program::instruction::{AccountMeta, Instruction};
+use solana_program::account_info::AccountInfo;
+use solana_program::instruction::InstructionError;
 use solana_program::program_pack::Pack;
 use solana_program::pubkey::Pubkey;
-use solana_program::rent::Rent;
 use solana_program::system_instruction::create_account;
-use solana_program::sysvar::SysvarId;
+use solana_sdk::account::ReadableAccount;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::signature::{read_keypair_file, Keypair};
 use solana_sdk::signer::Signer;
-use solana_sdk::transaction::Transaction;
+use solana_sdk::transaction::{Transaction, TransactionError};
 use spl_token::state::{Account, Mint};
+use std::cell::RefCell;
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::rc::Rc;
+use std::thread::sleep;
+use std::time::Duration;
 
 const DEFAULT_RPC_URL: &str = "http://127.0.0.1:8899";
+const EXECUTE_INTERVAL: Duration = Duration::from_secs(15);
 
 #[derive(Parser)]
 #[clap(name = "command")]
@@ -37,6 +42,7 @@ struct Command {
 #[derive(clap::Subcommand, Debug)]
 enum RPC {
     Initiate(Initiate),
+    Execute(Execute),
 }
 
 #[derive(clap::Args, Debug)]
@@ -50,12 +56,25 @@ struct Initiate {
     to: Pubkey,
     #[clap(short, long, value_parser)]
     amount: u64,
-    #[clap(long, value_parser)]
-    min: u64,
-    #[clap(long, value_parser)]
-    max: u64,
+    #[clap(
+        long,
+        value_parser,
+        help = "Percentage margin on the current exchange rate"
+    )]
+    margin: Decimal,
+    #[clap(short, long, value_parser, help = "Duration in seconds")]
+    valid_for: Option<u64>,
+}
+
+#[derive(clap::Args, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Execute {
     #[clap(short, long, value_parser)]
-    valid_until: Option<u64>,
+    fx_account: Pubkey,
+    #[clap(short, long, value_parser)]
+    liquidity: PathBuf,
+    #[clap(short, long, value_parser)]
+    payer: Option<PathBuf>,
 }
 
 pub fn main() {
@@ -67,7 +86,6 @@ pub fn main() {
 
     let client = RpcClient::new(url.unwrap_or_else(|| DEFAULT_RPC_URL.to_string()));
     let signer = read_keypair_file(&key_path).expect("Invalid key pair");
-    let program_id = m10_fx_solana::id();
 
     match command {
         RPC::Initiate(initiate) => {
@@ -147,33 +165,34 @@ pub fn main() {
             );
             instructions.push(create_account_ix);
 
+            // Define limits
+            if initiate.margin.is_sign_negative() || initiate.margin > Decimal::one() {
+                panic!("Margin should be between 0.0 & 1.0: {}", initiate.margin);
+            }
+            let mut fake_1 = FakeAccounts::default();
+            let mut fake_2 = FakeAccounts::default();
+            let rate = DemoFx::rate(&fake_1.info(&from_liquidity), &fake_2.info(&fx_feed))
+                .expect("Could not get current FX rate");
+            println!("Current exchange rate {}", rate);
+            let min = rate * (Decimal::one() - initiate.margin);
+            let max = rate * (Decimal::one() + initiate.margin);
+            println!(
+                "Set margin to {}. Limits: [{}, {}]",
+                initiate.margin, min, max
+            );
+
             // Invoke the Initiate command
-            let initiate_ix = Instruction::new_with_borsh(
-                program_id,
-                &FxEvent::Initiate {
-                    amount: initiate.amount,
-                    upper_limit: initiate.max,
-                    lower_limit: initiate.min,
-                    valid_until: initiate.valid_until.unwrap_or_else(|| {
-                        SystemTime::now()
-                            .checked_add(Duration::from_secs(300))
-                            .unwrap()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
-                    }) as UnixTimestamp,
-                },
-                vec![
-                    AccountMeta::new_readonly(initiate.from, false),
-                    AccountMeta::new(new_key.pubkey(), true),
-                    AccountMeta::new_readonly(initiate.to, false),
-                    AccountMeta::new(fx_key.pubkey(), true),
-                    AccountMeta::new_readonly(Rent::id(), false),
-                    AccountMeta::new_readonly(spl_token::id(), false),
-                    AccountMeta::new_readonly(fx_feed, false),
-                    AccountMeta::new(from_liquidity, false),
-                    AccountMeta::new_readonly(pda, false),
-                ],
+            let initiate_ix = m10_fx_solana::instruction::initiate(
+                initiate.from,
+                new_key.pubkey(),
+                initiate.to,
+                fx_key.pubkey(),
+                fx_feed,
+                from_liquidity,
+                initiate.amount,
+                max,
+                min,
+                initiate.valid_for.map(Duration::from_secs),
             );
             instructions.push(initiate_ix);
 
@@ -189,10 +208,7 @@ pub fn main() {
                 &[&payer, &new_key, &signer, &fx_key],
                 recent_blockhash,
             );
-            if let Err(err) = client.send_and_confirm_transaction_with_spinner_and_commitment(
-                &tx,
-                CommitmentConfig::processed(),
-            ) {
+            if let Err(err) = client.send_and_confirm_transaction_with_spinner(&tx) {
                 panic!("{:#?}", err);
             }
             println!(
@@ -201,6 +217,103 @@ pub fn main() {
                 spl_token::amount_to_ui_amount(initiate.amount, mint_data.decimals)
             );
             println!("Created FX account {}", fx_key.pubkey());
+        }
+        RPC::Execute(execute) => {
+            println!("{:?}", execute);
+            let payer = read_keypair_file(execute.payer.as_ref().unwrap_or(&key_path))
+                .expect("Could not find payer key");
+            loop {
+                match try_execute(&client, &signer, &payer, &execute) {
+                    Ok(_) => {
+                        println!("Successfully executed FX swap");
+                        return;
+                    }
+                    Err(err) => {
+                        if let Some(TransactionError::InstructionError(
+                            _,
+                            InstructionError::Custom(7),
+                        )) = err.get_transaction_error()
+                        {
+                            // Swap conditions not met
+                            println!("Swap conditions not met. Sleeping {:?}", EXECUTE_INTERVAL);
+                            sleep(EXECUTE_INTERVAL);
+                        } else {
+                            panic!("{:#?}", err);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn try_execute(
+        client: &RpcClient,
+        signer: &Keypair,
+        payer: &Keypair,
+        execute: &Execute,
+    ) -> Result<(), ClientError> {
+        let fx_account = client
+            .get_account(&execute.fx_account)
+            .expect("Could not retrieve FX account");
+        let fx_data = FxData::unpack(fx_account.data()).expect("invalid FX data");
+        if !fx_data.is_initialized {
+            panic!("Fx data has not yet been initialized");
+        }
+
+        let liquidity_key =
+            read_keypair_file(&execute.liquidity).expect("Could not read liquidity key");
+        if fx_data.to_liquidity != liquidity_key.pubkey() {
+            panic!(
+                "Mismatched liquidity provider, expected {}",
+                fx_data.to_liquidity
+            );
+        }
+
+        let execute_ix = m10_fx_solana::instruction::execute(
+            signer.pubkey(),
+            fx_data.to_holding,
+            fx_data.to_liquidity,
+            execute.fx_account,
+            fx_data.fx_feed,
+        );
+
+        // get a blockhash
+        let recent_blockhash = client
+            .get_latest_blockhash()
+            .expect("error: unable to get recent blockhash");
+
+        // Execute transactions
+        let tx = Transaction::new_signed_with_payer(
+            &[execute_ix],
+            Some(&payer.pubkey()),
+            &[&liquidity_key, &payer],
+            recent_blockhash,
+        );
+        client.send_and_confirm_transaction_with_spinner_and_commitment(
+            &tx,
+            CommitmentConfig::processed(),
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct FakeAccounts {
+    data: [u8; 0],
+    lamports: u64,
+}
+
+impl FakeAccounts {
+    fn info<'a>(&'a mut self, public_key: &'a Pubkey) -> AccountInfo<'a> {
+        AccountInfo {
+            key: &public_key,
+            is_signer: false,
+            is_writable: false,
+            lamports: Rc::new(RefCell::new(&mut self.lamports)),
+            data: Rc::new(RefCell::new(&mut self.data)),
+            owner: &public_key,
+            executable: false,
+            rent_epoch: 0,
         }
     }
 }
