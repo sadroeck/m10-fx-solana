@@ -32,8 +32,6 @@ const EXECUTE_INTERVAL: Duration = Duration::from_secs(15);
 #[clap(bin_name = "command")]
 struct Command {
     #[clap(short, long)]
-    key_path: PathBuf,
-    #[clap(short, long)]
     url: Option<String>,
     #[clap(subcommand)]
     command: RPC,
@@ -48,6 +46,8 @@ enum RPC {
 #[derive(clap::Args, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Initiate {
+    #[clap(short, long)]
+    signer: PathBuf,
     #[clap(short, long, value_parser)]
     payer: PathBuf,
     #[clap(short, long, value_parser)]
@@ -74,24 +74,20 @@ struct Execute {
     #[clap(short, long, value_parser)]
     liquidity: PathBuf,
     #[clap(short, long, value_parser)]
-    payer: Option<PathBuf>,
+    payer: PathBuf,
 }
 
 pub fn main() {
-    let Command {
-        url,
-        key_path,
-        command,
-    } = Command::parse();
+    let Command { url, command } = Command::parse();
 
     let client = RpcClient::new(url.unwrap_or_else(|| DEFAULT_RPC_URL.to_string()));
-    let signer = read_keypair_file(&key_path).expect("Invalid key pair");
 
     match command {
         RPC::Initiate(initiate) => {
             println!("{:?}", initiate);
 
-            let payer = read_keypair_file(initiate.payer).expect("Could not read payer key");
+            let signer = read_keypair_file(&initiate.signer).expect("Invalid key pair");
+            let payer = read_keypair_file(&initiate.payer).expect("Could not read payer key");
             let mut instructions = vec![];
 
             let account = client
@@ -220,10 +216,9 @@ pub fn main() {
         }
         RPC::Execute(execute) => {
             println!("{:?}", execute);
-            let payer = read_keypair_file(execute.payer.as_ref().unwrap_or(&key_path))
-                .expect("Could not find payer key");
+            let payer = read_keypair_file(&execute.payer).expect("Could not find payer key");
             loop {
-                match try_execute(&client, &signer, &payer, &execute) {
+                match try_execute(&client, &payer, &execute) {
                     Ok(_) => {
                         println!("Successfully executed FX swap");
                         return;
@@ -248,7 +243,6 @@ pub fn main() {
 
     fn try_execute(
         client: &RpcClient,
-        signer: &Keypair,
         payer: &Keypair,
         execute: &Execute,
     ) -> Result<(), ClientError> {
@@ -270,7 +264,7 @@ pub fn main() {
         }
 
         let execute_ix = m10_fx_solana::instruction::execute(
-            signer.pubkey(),
+            fx_data.initializer,
             fx_data.to_holding,
             fx_data.to_liquidity,
             execute.fx_account,
