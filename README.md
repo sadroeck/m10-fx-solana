@@ -1,6 +1,14 @@
 # M10 FX remittance for Solana
 
-This is a simple FX swap program for the Solana blockchain.
+This project provides a sample [Solana](https://solana.com/) implementation of a delayed FX remittance smart contract.
+It allows the exchange of tokens of currency `A` to be swapped for tokens of currency `B` when certain conditions are met,
+i.e. the exchange rate reaches an upper or lower limit, or the validity period for the swap has been reached. This allows users
+to optimize for a more opportune FX rate instead of settling for the current market rate.
+
+The program provides a `Solana` smart contract implementation, a.k.a a `program` & a `CLI` tool to interact with the FX program.
+Liquidity is provided as a static exchange rate for demo purposed, but can be provided by an external exchange rate oracle, e.g. [ChainLink](https://docs.chain.link/solana/).
+
+![Account overview](./images/swap.png)
 
 ## Pre-requisites
 
@@ -167,3 +175,9 @@ Successfully executed FX swap
 ```
 
 In case of a longer duration contract, the `execute` command will continue polling every 15 seconds until the program has completed.
+
+## References
+
+* [Solana](https://solana.com/)
+* [Programming on Solana - An Introduction](https://paulx.dev/blog/2021/01/14/programming-on-solana-an-introduction/)
+* [ChainLink](https://docs.chain.link/solana/)
