@@ -49,6 +49,7 @@ impl FxEvent {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn initiate(
     initializer: Pubkey,
     from: Pubkey,

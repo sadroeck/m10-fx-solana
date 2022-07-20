@@ -34,7 +34,7 @@ impl Sealed for FxData {}
 impl Pack for FxData {
     const LEN: usize = size_of::<bool>()
         + 5 * size_of::<Pubkey>()
-        + 1 * size_of::<u64>()
+        + size_of::<u64>()
         + 2 * size_of::<Decimal>()
         + size_of::<UnixTimestamp>()
         + size_of::<Pubkey>();

@@ -52,7 +52,7 @@ impl FxSwap {
             }
             FxEvent::TryExecute => {
                 msg!("Trying to execute");
-                Self::try_execute(&accounts)
+                Self::try_execute(accounts)
             }
         }
     }
@@ -147,7 +147,7 @@ impl FxSwap {
 
         // Close the `from` account
         let close_account_ix = spl_token::instruction::close_account(
-            &token.key,
+            token.key,
             from_account.key,
             initializer.key,
             &pda,
@@ -219,8 +219,8 @@ impl FxSwap {
             token.key,
             to_liquidity.key,
             to_account.key,
-            &to_liquidity.key,
-            &[&to_liquidity.key],
+            to_liquidity.key,
+            &[to_liquidity.key],
             fx_amount as u64,
         )?;
         invoke(
