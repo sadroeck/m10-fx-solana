@@ -3,12 +3,13 @@ use crate::instruction::FxEvent;
 use crate::liquidity::{DemoLiquidity, LiquidityProvider};
 use crate::rates::{DemoFx, FxRates};
 use crate::state::FxData;
+use crate::utils::pda_swap;
 use rust_decimal::Decimal;
 use solana_program::account_info::{next_account_info, AccountInfo};
 use solana_program::clock::{Clock, UnixTimestamp};
 use solana_program::entrypoint::ProgramResult;
 use solana_program::msg;
-use solana_program::program::{invoke, invoke_signed};
+use solana_program::program::invoke_signed;
 use solana_program::program_error::ProgramError;
 use solana_program::program_pack::{IsInitialized, Pack};
 use solana_program::pubkey::Pubkey;
@@ -21,7 +22,7 @@ pub struct FxSwap;
 
 impl FxSwap {
     pub fn process(
-        program_id: &Pubkey,
+        _program_id: &Pubkey,
         accounts: &[AccountInfo],
         instruction_data: &[u8],
     ) -> ProgramResult {
@@ -47,7 +48,7 @@ impl FxSwap {
             }
             FxEvent::TryExecute => {
                 msg!("Trying to execute");
-                Self::try_execute(program_id, &accounts)
+                Self::try_execute(&accounts)
             }
         }
     }
@@ -68,11 +69,11 @@ impl FxSwap {
         let rent = next_account_info(account_info_iter)?;
         let token = next_account_info(account_info_iter)?;
         let fx_feed = next_account_info(account_info_iter)?;
+        let from_liquidity_account = next_account_info(account_info_iter)?;
+        let pda_account = next_account_info(account_info_iter)?;
 
-        // We need the signature of the account requesting the quote
-        if !initializer.is_signer {
-            return Err(FxError::MissingSignature)?;
-        }
+        // Generate PDA
+        let (pda, bump_seed) = pda_swap();
 
         // The from & to holding accounts need to be part of a swappable token
         spl_token::check_program_account(from_account.owner)
@@ -85,10 +86,18 @@ impl FxSwap {
             return Err(FxError::NotRentExempt)?;
         }
 
+        // Check ephemeral `from` account balance
+        if Account::unpack(&from_account.try_borrow_data()?)?.amount != amount {
+            return Err(FxError::InvalidAmount)?;
+        }
+
         // Retrieve the liquidity providers
         let from_liquidity =
             DemoLiquidity::liquidity_account(&Account::unpack(&from_account.try_borrow_data()?)?)
                 .ok_or(FxError::NoLiquidity)?;
+        if from_liquidity != *from_liquidity_account.key {
+            return Err(FxError::InvalidRequest)?;
+        }
         let to_liquidity =
             DemoLiquidity::liquidity_account(&Account::unpack(&to_account.try_borrow_data()?)?)
                 .ok_or(FxError::NoLiquidity)?;
@@ -112,24 +121,47 @@ impl FxSwap {
         };
         FxData::pack(fx_data, &mut fx_account.try_borrow_mut_data()?)?;
 
-        // Change the owner of the `from_holding_account`
-        let change_owner = spl_token::instruction::transfer(
+        // Transfer the funds from `from` -> `liquidity`
+        let transfer_funds_ix = spl_token::instruction::transfer(
             token.key,
             from_account.key,
-            &from_liquidity,
-            initializer.key,
-            &[initializer.key],
+            from_liquidity_account.key,
+            &pda,
+            &[&pda],
             amount,
         )?;
-        invoke(
-            &change_owner,
-            &[from_account.clone(), initializer.clone(), token.clone()],
+        invoke_signed(
+            &transfer_funds_ix,
+            &[
+                from_account.clone(),
+                from_liquidity_account.clone(),
+                pda_account.clone(),
+            ],
+            &[&[&b"m10fxswap"[..], &[bump_seed]]],
+        )?;
+
+        // Close the `from` account
+        let close_account_ix = spl_token::instruction::close_account(
+            &token.key,
+            from_account.key,
+            initializer.key,
+            &pda,
+            &[&pda],
+        )?;
+        invoke_signed(
+            &close_account_ix,
+            &[
+                from_account.clone(),
+                initializer.clone(),
+                pda_account.clone(),
+            ],
+            &[&[&b"m10fxswap"[..], &[bump_seed]]],
         )?;
 
         Ok(())
     }
 
-    fn try_execute(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    fn try_execute(accounts: &[AccountInfo]) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let program_account = next_account_info(account_info_iter)?;
         let requester = next_account_info(account_info_iter)?;
@@ -185,7 +217,7 @@ impl FxSwap {
         }
 
         // Transfer [`from_account`] -> [`from_liquidity`]
-        let (pda, bump_seed) = Pubkey::find_program_address(&[b"m10fxswap"], program_id);
+        let (pda, bump_seed) = pda_swap();
         let from_swap = spl_token::instruction::transfer(
             token.key,
             &fx_data.from_holding,

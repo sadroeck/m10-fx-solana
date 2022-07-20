@@ -9,22 +9,22 @@ pub trait LiquidityProvider {
 /// A demo liquidity provider with pre-allocated funds for certain tokens
 pub struct DemoLiquidity;
 
-// Bksm888usoczFHiw2WqWhWhQ1YNST4KoBd3s3AybEkSt
+// 9TpPPxkhRr43JEoFx1CBq3PG2Z9RYPLCc2ih2bErhNB7
 pub const SAR_MINT: Pubkey = Pubkey::new_from_array(
-    Decoder::Hex.decode(b"9fd23d498947b678de43f4d143c239e64f92659cf9631638500aba6cf21c3951"),
+    Decoder::Hex.decode(b"7dbc2d164c1c47b4182805e85a513be63513dba6cbf1420b6b7594257c0b22ae"),
 );
-// 9kzb7SoQ6zBjVFpUyokXpkwTaSqKDcvuVWRAQopZ3Z8Q
+// 3SiXzpU2XxCLaPKMWuaNjXDMrWjqGrcYoD6HN9A633W9
 pub const SAR_LIQUIDITY: Pubkey = Pubkey::new_from_array(
-    Decoder::Hex.decode(b"822295d627a82daa76efdb02cd83f3a6f862773c47c9c01b4e1e4fc2535372dd"),
+    Decoder::Hex.decode(b"244ddb71fa469b36a86698c396d043f78f22e5446ed00df525eed4c19c4669a2"),
 );
 
-// GmJBGLGQYxWuPS8VMtEgAMcNEzEPT4nQSX8EcJmMuyCQ
+// EfBRenoHB4hZYSxpDPvWzavSDaoFLTUHi1johJSAg5LU
 pub const IDR_MINT: Pubkey = Pubkey::new_from_array(
-    Decoder::Hex.decode(b"ea38481432a51693ad14dd810301ecc21244b33e61c0ebe6735440a4bbd93c15"),
+    Decoder::Hex.decode(b"caefc9d4c14b87cc74a2b3797e004238b7739ba908678053f091ce53f8750f81"),
 );
-// 7uRDndX5VQpHMP1XPeqpimfmSVYiSLydxQq8GYrsedKM
+// 4xF16x82rckft4oiQob6wob8KTeVtVsMusU4wVnQsXQ
 pub const IDR_LIQUIDITY: Pubkey = Pubkey::new_from_array(
-    Decoder::Hex.decode(b"6693b5b4f0c5d3e0a46b9fe5b502fd84df6c044366f1745bfbad085f483fd000"),
+    Decoder::Hex.decode(b"0103343f2399232dc0bb9c2f4cb8a036d3e07bcb1f2b5899c6cf0a6ed1f90ad3"),
 );
 
 impl LiquidityProvider for DemoLiquidity {
