@@ -5,8 +5,8 @@ It allows the exchange of tokens of currency `A` to be swapped for tokens of cur
 i.e. the exchange rate reaches an upper or lower limit, or the validity period for the swap has been reached. This allows users
 to optimize for a more opportune FX rate instead of settling for the current market rate.
 
-The program provides a `Solana` smart contract implementation, a.k.a a `program` & a `CLI` tool to interact with the FX program.
-Liquidity is provided as a static exchange rate for demo purposed, but can be provided by an external exchange rate oracle, e.g. [ChainLink](https://docs.chain.link/solana/).
+The program provides a `Solana` smart contract implementation, i.e. a `program`, & a `CLI` tool to interact with the FX program.
+Liquidity is provided as a static exchange rate for demo purposes, but can be provided by an external exchange rate oracle, e.g. [ChainLink](https://docs.chain.link/solana/).
 
 ![Account overview](./images/swap.png)
 
@@ -20,6 +20,10 @@ Liquidity is provided as a static exchange rate for demo purposed, but can be pr
   * e.g. `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 * Install the [SPL token CLI](https://spl.solana.com/token)
   * e.g. `cargo install spl-token-cli`
+* Note: optionally a Dockerfile is provided for a ready to build and use development environment (give it plenty of resources!)
+  * `docker build . --tag m10-fx-solana:latest -f ./Dockerfile`
+  * `docker run --name test-ledger --network host --rm -it -v "$(pwd)":/m10-fx-solana m10-fx-solana` (for running the test ledger)
+  * `docker run --name m10-fx-solana-cli --network host --rm -it -v "$(pwd)":/m10-fx-solana m10-fx-solana` (for using the CLI)
 
 ## Build & Deploy
 
@@ -43,20 +47,19 @@ Set the cluster to a config of your choice, e.g. for local development:
 solana config set -ul
 ```
 
-Create a new keypair (~account):
+Launch a local Solana test cluster in the directory of your choice using:
+In a seperate window, launch a local Solana test cluster in the directory of your choice using:
+```shell
+solana-test-validator
+```
 
+Create a new keypair (~account) and fund it:
 ```shell
 solana-keygen new -o ~/.config/solana/id.json
 solana airdrop 10
 ```
 
-Launch a local Solana test cluster in the directory of your choice using:
-```shell
-solana-test-validator
-```
-
 Using the `cargo` tool, run
-
 ```shell
 cargo build-bpf
 ```
