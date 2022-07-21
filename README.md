@@ -20,10 +20,11 @@ Liquidity is provided as a static exchange rate for demo purposes, but can be pr
   * e.g. `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 * Install the [SPL token CLI](https://spl.solana.com/token)
   * e.g. `cargo install spl-token-cli`
+
 * Note: optionally a Dockerfile is provided for a ready to build and use development environment (give it plenty of resources!)
   * `docker build . --tag m10-fx-solana:latest -f ./Dockerfile`
-  * `docker run --name test-ledger --network host --rm -it -v "$(pwd)":/m10-fx-solana m10-fx-solana` (for running the test ledger)
-  * `docker run --name m10-fx-solana-cli --network host --rm -it -v "$(pwd)":/m10-fx-solana m10-fx-solana` (for using the CLI)
+  * `docker run --name m10-fx-solana --rm -it -v "$(pwd)":/m10-fx-solana m10-fx-solana`
+  * Use screen to run test-ledger in the background after creating your key `screen -dmS test-ledger solana-test-validator`
 
 ## Build & Deploy
 
@@ -47,15 +48,19 @@ Set the cluster to a config of your choice, e.g. for local development:
 solana config set -ul
 ```
 
+Create a new keypair (~account) for the test-ledger:
+```shell
+solana-keygen new -o ~/.config/solana/id.json
+```
+
 Launch a local Solana test cluster in the directory of your choice using:
 In a seperate window, launch a local Solana test cluster in the directory of your choice using:
 ```shell
 solana-test-validator
 ```
 
-Create a new keypair (~account) and fund it:
+Fund the test-ledger account:
 ```shell
-solana-keygen new -o ~/.config/solana/id.json
 solana airdrop 10
 ```
 
@@ -76,31 +81,37 @@ representing the `Saudi Riyal` & the `Indonesian Rupiah` respectively. For that 
 For each, we'll need to create a liquidity provider account & provide them with a sufficient supply of tokens.
 The code in the program is set up to use the keys in the `keys` directory.
 
+# Export our keys for later use
 ```shell
-# Generate IDR mint
-solana-keygen new --outfile ./keys/idr_mint.key --no-bip39-passphrase
-IDR_MINT=$(solana address -k ./keys/idr_mint.key)
-spl-token create-token --decimals 2 ./keys/idr_mint.key --mint-authority ./keys/idr_mint.key
+export IDR_MINT=$(solana address -k ./keys/idr_mint.key) && \
+export IDR_LIQUIDITY=$(solana address -k ./keys/idr_liquidity.key) && \
+export SAR_MINT=$(solana address -k ./keys/sar_mint.key) && \
+export SAR_LIQUIDITY=$(solana address -k ./keys/sar_liquidity.key) && \
+export ALICE=$(solana address -k ./keys/alice.key) && \
+export BOB=$(solana address -k ./keys/bob.key)
+```
+
+```shell
+# Generate IDR mint (ignore the "Refusing to overwrite" warnings, those are expected for idempotent behavior)
+solana-keygen new --outfile ./keys/idr_mint.key --no-bip39-passphrase && \
+spl-token create-token --decimals 2 ./keys/idr_mint.key --mint-authority ./keys/idr_mint.key && \
 solana airdrop 10 $IDR_MINT
 
 # Generate IDR liquidity holding
-solana-keygen new --outfile ./keys/idr_liquidity.key --no-bip39-passphrase
-IDR_LIQUIDITY=$(solana address -k ./keys/idr_liquidity.key)
-spl-token -v create-account --owner ./keys/idr_liquidity.key $IDR_MINT -- ./keys/idr_liquidity.key
-spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 1000000 $IDR_LIQUIDITY
+solana-keygen new --outfile ./keys/idr_liquidity.key --no-bip39-passphrase && \
+spl-token -v create-account --owner ./keys/idr_liquidity.key $IDR_MINT -- ./keys/idr_liquidity.key && \
+spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 1000000 $IDR_LIQUIDITY && \
 solana airdrop 10 $IDR_LIQUIDITY
 
 # Generate SAR mint
-solana-keygen new --outfile ./keys/sar_mint.key --no-bip39-passphrase
-spl-token create-token --decimals 2 ./keys/sar_mint.key --mint-authority ./keys/sar_mint.key
-SAR_MINT=$(solana address -k ./keys/sar_mint.key)
+solana-keygen new --outfile ./keys/sar_mint.key --no-bip39-passphrase && \
+spl-token create-token --decimals 2 ./keys/sar_mint.key --mint-authority ./keys/sar_mint.key && \
 solana airdrop 10 $SAR_MINT
 
 # Generate SAR liquidity holding
-solana-keygen new --outfile ./keys/sar_liquidity.key --no-bip39-passphrase
-SAR_LIQUIDITY=$(solana address -k ./keys/sar_liquidity.key)
-spl-token -v create-account --owner ./keys/sar_liquidity.key $SAR_MINT -- ./keys/sar_liquidity.key
-spl-token mint --mint-authority ./keys/sar_mint.key $SAR_MINT 10000000 $SAR_LIQUIDITY
+solana-keygen new --outfile ./keys/sar_liquidity.key --no-bip39-passphrase && \
+spl-token -v create-account --owner ./keys/sar_liquidity.key $SAR_MINT -- ./keys/sar_liquidity.key && \
+spl-token mint --mint-authority ./keys/sar_mint.key $SAR_MINT 10000000 $SAR_LIQUIDITY && \
 solana airdrop 10 $SAR_LIQUIDITY
 ```
 
@@ -108,16 +119,14 @@ After that we'll create our two customers, `Alice` & `Bob`, who will be attempti
 
 ```shell
 # Create an IDR account for Alice
-solana-keygen new --outfile ./keys/alice.key --no-bip39-passphrase
-ALICE=$(solana address -k ./keys/alice.key)
-spl-token -v create-account --owner ./keys/alice.key $IDR_MINT -- ./keys/alice.key
-spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 5000000 $ALICE
+solana-keygen new --outfile ./keys/alice.key --no-bip39-passphrase && \
+spl-token -v create-account --owner ./keys/alice.key $IDR_MINT -- ./keys/alice.key && \
+spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 5000000 $ALICE && \
 solana airdrop 1 $ALICE
 
 # Create a SAR account for Bob
-solana-keygen new --outfile ./keys/bob.key --no-bip39-passphrase
-BOB=$(solana address -k ./keys/bob.key)
-spl-token -v create-account --owner ./keys/bob.key $SAR_MINT -- ./keys/bob.key
+solana-keygen new --outfile ./keys/bob.key --no-bip39-passphrase && \
+spl-token -v create-account --owner ./keys/bob.key $SAR_MINT -- ./keys/bob.key && \
 solana airdrop 1 $BOB
 ```
 
@@ -129,7 +138,7 @@ cargo build-bpf
 solana program deploy ./target/deploy/m10_fx_solana.so
 
 # FX program address
-FX_ADDRESS='DN2H8TDdUd5b1FonoP2UsTNgKVuHi1xwMD5Qr9UivH59'
+export FX_ADDRESS='DN2H8TDdUd5b1FonoP2UsTNgKVuHi1xwMD5Qr9UivH59'
 ```
 
 ## Executing FX swaps
@@ -138,7 +147,7 @@ Using the `CLI` a user can interact with the fx program. In order for `Alice` to
 invoke the following command:
 
 ```shell
-cargo run --bin m10-fx-solana-cli -- initiate \
+cargo run --release --bin m10-fx-solana-cli -- initiate \
   --signer ./keys/alice.key \
   --amount 100000 \
   --from $ALICE \
