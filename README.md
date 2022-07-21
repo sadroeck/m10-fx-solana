@@ -43,6 +43,13 @@ Set the cluster to a config of your choice, e.g. for local development:
 solana config set -ul
 ```
 
+Create a new keypair (~account):
+
+```shell
+solana-keygen new -o ~/.config/solana/id.json
+solana airdrop 10
+```
+
 Launch a local Solana test cluster in the directory of your choice using:
 ```shell
 solana-test-validator
