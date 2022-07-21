@@ -71,7 +71,9 @@ cargo build-bpf
 
 which provides the instructions for deployment after compiling successfully, e.g.
 ```shell
-solana program deploy ./target/deploy/m10_fx_solana.so
+# export the FX program address for later use
+export FX_PROGRAM_ID='DN2H8TDdUd5b1FonoP2UsTNgKVuHi1xwMD5Qr9UivH59'
+solana program deploy ./target/deploy/m10_fx_solana.so --program-id $FX_PROGRAM_ID
 ```
 
 ## Initialization
@@ -93,25 +95,25 @@ export BOB=$(solana address -k ./keys/bob.key)
 
 ```shell
 # Generate IDR mint (ignore the "Refusing to overwrite" warnings, those are expected for idempotent behavior)
-solana-keygen new --outfile ./keys/idr_mint.key --no-bip39-passphrase && \
-spl-token create-token --decimals 2 ./keys/idr_mint.key --mint-authority ./keys/idr_mint.key && \
+solana-keygen new --outfile ./keys/idr_mint.key --no-bip39-passphrase
+spl-token create-token --decimals 2 ./keys/idr_mint.key --mint-authority ./keys/idr_mint.key
 solana airdrop 10 $IDR_MINT
 
 # Generate IDR liquidity holding
-solana-keygen new --outfile ./keys/idr_liquidity.key --no-bip39-passphrase && \
-spl-token -v create-account --owner ./keys/idr_liquidity.key $IDR_MINT -- ./keys/idr_liquidity.key && \
-spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 1000000 $IDR_LIQUIDITY && \
+solana-keygen new --outfile ./keys/idr_liquidity.key --no-bip39-passphrase
+spl-token -v create-account --owner ./keys/idr_liquidity.key $IDR_MINT -- ./keys/idr_liquidity.key
+spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 1000000 $IDR_LIQUIDITY
 solana airdrop 10 $IDR_LIQUIDITY
 
 # Generate SAR mint
-solana-keygen new --outfile ./keys/sar_mint.key --no-bip39-passphrase && \
-spl-token create-token --decimals 2 ./keys/sar_mint.key --mint-authority ./keys/sar_mint.key && \
+solana-keygen new --outfile ./keys/sar_mint.key --no-bip39-passphrase
+spl-token create-token --decimals 2 ./keys/sar_mint.key --mint-authority ./keys/sar_mint.key
 solana airdrop 10 $SAR_MINT
 
 # Generate SAR liquidity holding
-solana-keygen new --outfile ./keys/sar_liquidity.key --no-bip39-passphrase && \
-spl-token -v create-account --owner ./keys/sar_liquidity.key $SAR_MINT -- ./keys/sar_liquidity.key && \
-spl-token mint --mint-authority ./keys/sar_mint.key $SAR_MINT 10000000 $SAR_LIQUIDITY && \
+solana-keygen new --outfile ./keys/sar_liquidity.key --no-bip39-passphrase
+spl-token -v create-account --owner ./keys/sar_liquidity.key $SAR_MINT -- ./keys/sar_liquidity.key
+spl-token mint --mint-authority ./keys/sar_mint.key $SAR_MINT 10000000 $SAR_LIQUIDITY
 solana airdrop 10 $SAR_LIQUIDITY
 ```
 
@@ -119,26 +121,15 @@ After that we'll create our two customers, `Alice` & `Bob`, who will be attempti
 
 ```shell
 # Create an IDR account for Alice
-solana-keygen new --outfile ./keys/alice.key --no-bip39-passphrase && \
-spl-token -v create-account --owner ./keys/alice.key $IDR_MINT -- ./keys/alice.key && \
-spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 5000000 $ALICE && \
+solana-keygen new --outfile ./keys/alice.key --no-bip39-passphrase
+spl-token -v create-account --owner ./keys/alice.key $IDR_MINT -- ./keys/alice.key
+spl-token mint --mint-authority ./keys/idr_mint.key $IDR_MINT 5000000 $ALICE
 solana airdrop 1 $ALICE
 
 # Create a SAR account for Bob
-solana-keygen new --outfile ./keys/bob.key --no-bip39-passphrase && \
-spl-token -v create-account --owner ./keys/bob.key $SAR_MINT -- ./keys/bob.key && \
+solana-keygen new --outfile ./keys/bob.key --no-bip39-passphrase
+spl-token -v create-account --owner ./keys/bob.key $SAR_MINT -- ./keys/bob.key
 solana airdrop 1 $BOB
-```
-
-In case you haven't done so already, now would be a great time to deploy the program:
-
-```shell
-# Deploy solana program
-cargo build-bpf
-solana program deploy ./target/deploy/m10_fx_solana.so
-
-# FX program address
-export FX_ADDRESS='DN2H8TDdUd5b1FonoP2UsTNgKVuHi1xwMD5Qr9UivH59'
 ```
 
 ## Executing FX swaps
