@@ -7,4 +7,4 @@ pub mod rates;
 pub mod state;
 pub mod utils;
 
-solana_program::declare_id!("DN2H8TDdUd5b1FonoP2UsTNgKVuHi1xwMD5Qr9UivH59");
+solana_program::declare_id!("4vaCREdWhTcgzzyFXXZDSub6KF5xJbWw8SBfvHyBVKQB");

@@ -71,9 +71,9 @@ cargo build-bpf
 
 which provides the instructions for deployment after compiling successfully, e.g.
 ```shell
-# export the FX program address for later use
-export FX_PROGRAM_ID='DN2H8TDdUd5b1FonoP2UsTNgKVuHi1xwMD5Qr9UivH59'
-solana program deploy ./target/deploy/m10_fx_solana.so --program-id $FX_PROGRAM_ID
+export FX_PROGRAM_KEY=$(solana address -k ./keys/program.key)
+solana airdrop 10 $FX_PROGRAM_KEY # To fund the program
+solana program deploy ./target/deploy/m10_fx_solana.so -k ./keys/program.key
 ```
 
 ## Initialization
@@ -149,12 +149,12 @@ cargo run --release --bin m10-fx-solana-cli -- initiate \
 ```
 
 This proposes an FX swap of `1000.00 SAR` from `Alice`'s account to the equivalent in `IDR` for `Bob`. The swap will take place when
-either the validity period, defined by `valid-for`, has been exceeded. In this case, the swap will run for a maximum of 60 seconds.
-Or if the FX rate moves more than 10% from the current rate, i.e. decreases by or increases by 10%. The `payer` argument defines which account 
+either an optimal rate is found or the validity period, defined by `valid-for`, has been exceeded. In this case, the swap will run for a maximum of 60 seconds
+unless the FX rate moves more than 10% from the current rate, i.e. decreases by or increases by 10%. The `payer` argument defines which account 
 will pay the required `sol` fees for the transactions. The `signer` argument indicates `Alice` invokes the contract.
 
 ```shell
-cargo run --bin m10-fx-solana-cli -- initiate --signer ./keys/alice.key -a 100000 -f $ALICE -t $BOB --margin 0.10 --payer ~/.config/solana/id.json --valid-for 30
+cargo run --release --bin m10-fx-solana-cli -- initiate --signer ./keys/alice.key -a 100000 -f $ALICE -t $BOB --margin 0.10 --payer ~/.config/solana/id.json --valid-for 30
      Running `target/debug/m10-fx-solana-cli initiate --signer ./keys/alice.key -a 100000 -f C7UhfEFxFDUYYai4aEvvUm2Ubx6hqVzX2J6P1jPQjL6Z -t AYPFrwvbJ1RQHnn1xMyHYDqJLghmppEcYFwAo6V6oCig --margin 0.10 --payer ~/.config/solana/id.json --valid-for 30`
 Initiate { signer: "./keys/alice.key", payer: "~/.config/solana/id.json", from: C7UhfEFxFDUYYai4aEvvUm2Ubx6hqVzX2J6P1jPQjL6Z, to: AYPFrwvbJ1RQHnn1xMyHYDqJLghmppEcYFwAo6V6oCig, amount: 100000, margin: 0.10, valid_for: Some(30) }
 Current exchange rate 0.0002509788173878124686276478
@@ -167,7 +167,7 @@ The `initiate` command has created an `FX account` (`6QCSzK56UKzDxruzgU81XzPEf4P
 The contract can be pinged by using the `execute` command using the `SAR liquidity provider` key.
 
 ```shell
-cargo run --bin m10-fx-solana-cli -- execute \
+cargo run --release --bin m10-fx-solana-cli -- execute \
   --fx-account 6QCSzK56UKzDxruzgU81XzPEf4PpVMTTrp7bsfCRBPhp \
   --liquidity ./keys/sar_liquidity.key \
   --payer ~/.config/solana/id.json
@@ -178,7 +178,7 @@ It needs permission to provide liquidity for the `SAR` token using the `liquidit
 will pay the required `sol` fees for the transactions.
 
 ```shell
-cargo run --bin m10-fx-solana-cli -- execute --fx-account 6QCSzK56UKzDxruzgU81XzPEf4PpVMTTrp7bsfCRBPhp --liquidity ./keys/sar_liquidity.key --payer ~/.config/solana/id.json
+cargo run --release --bin m10-fx-solana-cli -- execute --fx-account 6QCSzK56UKzDxruzgU81XzPEf4PpVMTTrp7bsfCRBPhp --liquidity ./keys/sar_liquidity.key --payer ~/.config/solana/id.json
   Running `target/debug/m10-fx-solana-cli execute --fx-account 6QCSzK56UKzDxruzgU81XzPEf4PpVMTTrp7bsfCRBPhp --liquidity ./keys/sar_liquidity.key --payer ~/.config/solana/id.json`
 Execute { fx_account: 6QCSzK56UKzDxruzgU81XzPEf4PpVMTTrp7bsfCRBPhp, liquidity: "./keys/sar_liquidity.key", payer: "~/.config/solana/id.json" }
 Successfully executed FX swap
