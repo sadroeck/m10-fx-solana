@@ -26,8 +26,8 @@ pub enum FxEvent {
     ///     8. [`pda_account`] Program derived address for the [`from_account`] transfer
     Initiate {
         amount: u64,
-        upper_limit: [u8; 16], // Decimal
-        lower_limit: [u8; 16], // Decimal
+        upper_limit: Decimal,
+        lower_limit: Decimal,
         valid_for: u64,
     },
     /// Attempt to settle the FX swap based on the initiated conditions
@@ -67,8 +67,8 @@ pub fn initiate(
         crate::id(),
         &FxEvent::Initiate {
             amount,
-            upper_limit: upper_limit.serialize(),
-            lower_limit: lower_limit.serialize(),
+            upper_limit,
+            lower_limit,
             valid_for: valid_for
                 .unwrap_or_else(|| Duration::from_secs(300))
                 .as_secs(),

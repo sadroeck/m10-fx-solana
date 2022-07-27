@@ -34,8 +34,6 @@ impl FxSwap {
                 lower_limit,
                 valid_for,
             } => {
-                let lower_limit = Decimal::deserialize(lower_limit);
-                let upper_limit = Decimal::deserialize(upper_limit);
                 // Validate parameters
                 if lower_limit > upper_limit {
                     return Err(FxError::InvalidRequest)?;
