@@ -36,24 +36,24 @@ pub struct StaticFx {}
 
 impl StaticFx {
     fn is_demo(pubkey: &Pubkey) -> bool {
-        [SAR_TO_IDR, IDR_TO_SAR].contains(pubkey)
+        [USD_TO_EUR, EUR_TO_USD].contains(pubkey)
     }
 }
 
-// SAR <-> IDR program @ Bksm888usoczFHiw2WqWhWhQ1YNST4KoBd3s3AybEkSt
-pub const SAR_TO_IDR: Pubkey = Pubkey::new_from_array(
+// USD <-> EUR program @ Bksm888usoczFHiw2WqWhWhQ1YNST4KoBd3s3AybEkSt
+pub const USD_TO_EUR: Pubkey = Pubkey::new_from_array(
     Decoder::Hex.decode(b"9FD23D498947B678DE43F4D143C239E64F92659CF9631638500ABA6CF21C3951"),
 );
 
-// IDR <-> SAR program @ 6CUFp2TTBpF7RARbEVhgZhz2AA9L3ZGfpUUAr4g9croe
-pub const IDR_TO_SAR: Pubkey = Pubkey::new_from_array(
+// EUR <-> USD program @ 6CUFp2TTBpF7RARbEVhgZhz2AA9L3ZGfpUUAr4g9croe
+pub const EUR_TO_USD: Pubkey = Pubkey::new_from_array(
     Decoder::Hex.decode(b"4d3aa429d67459fbfda97c6478366d8056121fdb0551a00696dbae25b0fc560d"),
 );
 
 pub fn feed_for_token(from_mint: &Pubkey, to_mint: &Pubkey) -> Option<Pubkey> {
     match (*from_mint, *to_mint) {
-        (SAR_MINT, IDR_MINT) => Some(SAR_TO_IDR),
-        (IDR_MINT, SAR_MINT) => Some(IDR_TO_SAR),
+        (USD_MINT, EUR_MINT) => Some(USD_TO_EUR),
+        (EUR_MINT, USD_MINT) => Some(EUR_TO_USD),
         (_, _) => None,
     }
 }
@@ -63,10 +63,10 @@ impl FxRates for StaticFx {
         _fx_program: &AccountInfo<'info>,
         fx_feed: &AccountInfo<'info>,
     ) -> Result<Decimal, ProgramError> {
-        let sar_to_idr_rate = Decimal::new(398440, 2);
+        let usd_to_eur_rate = Decimal::new(9, 1);
         match *fx_feed.key {
-            SAR_TO_IDR => Ok(sar_to_idr_rate), //
-            IDR_TO_SAR => Ok(Decimal::one() / sar_to_idr_rate),
+            USD_TO_EUR => Ok(usd_to_eur_rate), //
+            EUR_TO_USD => Ok(Decimal::one() / usd_to_eur_rate),
             _ => Err(FxError::InvalidFxFeed)?,
         }
     }
